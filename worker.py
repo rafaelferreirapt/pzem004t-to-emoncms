@@ -6,6 +6,14 @@ import time
 import struct
 import requests
 import json
+from airbrake.notifier import Airbrake
+
+with open('config.json') as f:
+    CONFIG = json.load(f)
+
+ab = Airbrake(host=CONFIG["ERRBIT_HOST"],
+              api_key=CONFIG["ERRBIT_PROJECT_KEY"],
+              project_id=CONFIG["ERRBIT_PROJECT_ID"])
 
 
 class BTPOWER:
@@ -102,7 +110,7 @@ class BTPOWER:
             raise serial.SerialTimeoutException("Timeout reading registered power")
 
     def readAll(self):
-        return self.readVoltage(), self.readCurrent(), self.readPower(), self.readRegPower()
+        return self.readCurrent(), self.readPower()
 
     def close(self):
         self.ser.close()
@@ -110,26 +118,27 @@ class BTPOWER:
 
 if __name__ == "__main__":
 
-    with open('config.json') as f:
-        CONFIG = json.load(f)
+    try:
+        sensor = BTPOWER()
 
-    sensor = BTPOWER()
+        if sensor.isReady():
+            # init message
+            print("Reading and sending to emoncms...")
+            ab.notify("Reading and sending to emoncms...")
 
-    if sensor.isReady():
-        print("Reading and sending to emoncms...")
+            while True:
+                current, power = sensor.readAll()
 
-        while True:
-            voltage, current, power, regPower = sensor.readAll()
+                json_inputs = json.dumps({
+                    'current': str(current),
+                    'power': str(power)
+                })
 
-            json_inputs = json.dumps({
-                'voltage': str(voltage),
-                'current': str(current),
-                'power': str(power),
-                'regPower': str(regPower)
-            })
+                payload = {'apikey': CONFIG["API_KEY"], 'fulljson': json_inputs, 'node': 'emontx'}
 
-            payload = {'apikey': CONFIG["API_KEY"], 'fulljson': json_inputs, 'node': 'emontx'}
+                requests.get(CONFIG["HOST"] + "/emoncms/input/post", params=payload)
 
-            requests.get(CONFIG["HOST"] + "/emoncms/input/post", params=payload)
+                time.sleep(1)
+    except Exception:
+        ab.capture()
 
-            time.sleep(0.5)
