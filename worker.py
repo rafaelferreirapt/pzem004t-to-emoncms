@@ -23,7 +23,7 @@ class BTPOWER:
     readPowerBytes = [0XB2, 0xC0, 0xA8, 0x01, 0x01, 0x00, 0x1C]
     readRegPowerBytes = [0XB3, 0xC0, 0xA8, 0x01, 0x01, 0x00, 0x1D]
 
-    def __init__(self, com="/dev/tty.usbserial", timeout=10.0):
+    def __init__(self, com=CONFIG["USB_SERIAL"], timeout=10.0):
         self.ser = serial.Serial(
             port=com,
             baudrate=9600,
